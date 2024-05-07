@@ -1,0 +1,2 @@
+dev:
+	~/go/bin/air
