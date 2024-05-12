@@ -312,7 +312,7 @@ func (s *Spotify) captureHandler(w http.ResponseWriter, r *http.Request) {
 	// Close the channel to signal that the token is ready.
 	close(s.tokenReady)
 
-	fmt.Fprintf(w, "<html><body>✅ OAuth authorization complete. You may close this tab.</body></html>")
+	fmt.Fprintf(w, "<html><body>✅ OAuth authorization complete. Spotify library export will begin shortly. Check your desktop for <code>spotify_library.json</code><br>You may close this tab. 👋</body></html>")
 }
 
 func openBrowser(url string) {
