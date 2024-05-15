@@ -161,42 +161,54 @@ func (s *Spotify) GetUserPlaylists() []playlist.Playlist {
 }
 
 func (s *Spotify) GetUserFollowedArtists() []artist.Artist {
-	var res struct {
-		Artists struct {
-			Items []artist.Artist `json:"items"`
-		} `json:"artists"`
+	var allArtists []artist.Artist
+	nextPath := spotify_api.BaseApiUrl + "/me/following?type=artist&limit=50"
+
+	for nextPath != "" {
+		req, err := http.NewRequest("GET", nextPath, nil)
+		if err != nil {
+			fmt.Println("Failed to create GET request for GetUserFollowedArtists: ", err)
+			return nil
+		}
+
+		req.Header.Add("Authorization", "Bearer "+s.oauthResponse.AccessToken)
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			fmt.Println("Failed to send request to user following endpoint: ", err)
+			return nil
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			fmt.Println("Failed to GET path ("+nextPath+"): ", resp.Status)
+			return nil
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println("Failed to read response body (GetUserFollowedArtists): ", err)
+			return nil
+		}
+
+		var pageData struct {
+			Artists struct {
+				Items []artist.Artist `json:"items"`
+				Next  string          `json:"next"`
+			} `json:"artists"`
+		}
+
+		err = json.Unmarshal(body, &pageData)
+		if err != nil {
+			fmt.Println("Failed to unmarshal JSON response for followed artists: ", err)
+			return nil
+		}
+
+		allArtists = append(allArtists, pageData.Artists.Items...)
+		nextPath = pageData.Artists.Next
 	}
 
-	req, err := http.NewRequest("GET", spotify_api.BaseApiUrl+"/me/following?type=artist&limit=50", nil)
-	if err != nil {
-		fmt.Println("Failed to create GET request for GetUserFollowedArtists: ", err)
-		return nil
-	}
-
-	req.Header.Add("Authorization", "Bearer "+s.oauthResponse.AccessToken)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		fmt.Println("Failed to send request to user following endpoint: ", err)
-		return nil
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Failed to read response body (GetUserFollowedArtists): ", err)
-		return nil
-	}
-
-	err = json.Unmarshal(body, &res)
-	if err != nil {
-		fmt.Println("Failed to unmarshal JSON response for followed artists: ", err)
-		return nil
-	}
-
-	followedArtists := append([]artist.Artist{}, res.Artists.Items...)
-
-	return followedArtists
+	return allArtists
 }
 
 func (s *Spotify) GetUserSavedAlbums() []album.Album {
